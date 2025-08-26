@@ -9,6 +9,7 @@ const userSchema = mongoose.Schema({
     age: { type: Number },
     address: { type: String },
     bloodGroup: { type: String },
+    totalDonations: { type: Number, default: 0 },
     eligibility: { type: Boolean, default: true },
     points: { type: Number, default: 0 },
     totalDonations: { type: Number, default: 0 },

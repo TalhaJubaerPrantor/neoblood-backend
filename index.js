@@ -13,13 +13,9 @@ app.use(express.json());
 
 
 
-
+app.get('/users', userRoutes);
 app.post('/register', userRoutes);
 app.post('/login', userRoutes);
-
-
-
-
 
 
 

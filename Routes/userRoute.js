@@ -2,6 +2,12 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/userModel');
 
+
+router.get('/users', async (req, res) => {
+    const users = await User.find({});
+    res.send(users);
+})
+
 router.post('/register', async (req, res) => {
     console.log("Register Triggered");
     const { name, email, password, phone, age, address, bloodGroup } = req.body;
