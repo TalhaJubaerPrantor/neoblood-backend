@@ -13,24 +13,30 @@ app.use(express.json());
 
 // Routes
 app.get("/", (req, res) => {
-  res.send("🚀 Express + MongoDB running on Vercel!");
+  res.send("🚀 Express + MongoDB running!");
 });
 
-app.use("/users", userRoutes);
-app.use("/register", userRoutes);
-app.use("/login", userRoutes);
+app.get("/users", userRoutes);
+app.post("/register", userRoutes);
+app.post("/login", userRoutes);
 
-// MongoDB connection (use cloud DB like MongoDB Atlas)
+// MongoDB connection
 mongoose
-  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/neoblood", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(
+    process.env.MONGODB_URI ||
+      "mongodb+srv://talhajubaer3121:7264@cluster0.ph4m3m0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+  )
   .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err)); 
+  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
 
-// ❌ Remove app.listen()
-// ✅ Export for Vercel serverless
+// For local development
+if (process.env.NODE_ENV !== "production") {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Local server running at http://localhost:${PORT}`);
+  });
+}
+
+// Export for Vercel
 module.exports = app;
 module.exports.handler = serverless(app);
- 
