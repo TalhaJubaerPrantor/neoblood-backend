@@ -32,6 +32,7 @@ router.post('/register', async (req, res) => {
 })
 
 router.post('/login', async (req, res) => {
+    console.log("Login trigered")
     const { email, password } = req.body;
     console.log(email, password);
     const user = await User.findOne({ email: email, password: password });

@@ -5,14 +5,16 @@ const cors = require("cors");
 const userRoutes = require("./Routes/userRoute");
 
 const app = express();
-const PORT = 3000;
+const PORT = 4000;
 
 
 app.use(cors());
 app.use(express.json());
 
 
-
+app.get('/',(req,res)=>{
+    res.send("Working")
+})
 app.get('/users', userRoutes);
 app.post('/register', userRoutes);
 app.post('/login', userRoutes);
