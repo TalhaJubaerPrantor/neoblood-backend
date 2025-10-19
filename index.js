@@ -29,13 +29,13 @@ mongoose
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB Connection Error:", err));
 
-// For local development
-if (process.env.NODE_ENV !== "production") {
-  const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () => {
-    console.log(`🚀 Local server running at http://localhost:${PORT}`);
-  });
-}
+// // For local development
+// if (process.env.NODE_ENV !== "production") {
+//   const PORT = process.env.PORT || 4000;
+//   app.listen(PORT, () => {
+//     console.log(`🚀 Local server running at http://localhost:${PORT}`);
+//   });
+// }
 
 // Export for Vercel
 module.exports = app;
