@@ -12,13 +12,13 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-app.get("/", (req, res) => {
+app.use("/", (req, res) => {
   res.send("🚀 Express + MongoDB running!");
 });
 
-app.get("/users", userRoutes);
-app.post("/register", userRoutes);
-app.post("/login", userRoutes);
+app.use("/users", userRoutes);
+app.use("/register", userRoutes);
+app.use("/login", userRoutes);
 
 // MongoDB connection
 mongoose
