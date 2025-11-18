@@ -10,9 +10,82 @@ const findRoutes = require("./Routes/findRoute");
 
 const app = express();
 
+// MongoDB connection helper for serverless
+const connectDB = async () => {
+  try {
+    // Check if already connected
+    if (mongoose.connection.readyState === 1) {
+      console.log("✅ MongoDB already connected");
+      return;
+    }
+
+    // Check if connection is in progress
+    if (mongoose.connection.readyState === 2) {
+      console.log("⏳ MongoDB connection in progress...");
+      return;
+    }
+
+    // Connect with serverless-optimized options
+    const mongoUri = process.env.MONGODB_URI ||
+      "mongodb+srv://talhajubaer3121:7264@cluster0.ph4m3m0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+    
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+      bufferCommands: false, // Disable mongoose buffering
+    });
+    
+    console.log("✅ Connected to MongoDB");
+  } catch (err) {
+    console.error("❌ MongoDB Connection Error:", err);
+    throw err;
+  }
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Middleware to ensure MongoDB connection before handling requests (for serverless)
+app.use(async (req, res, next) => {
+  try {
+    // Check if connected
+    if (mongoose.connection.readyState === 1) {
+      return next();
+    }
+    
+    // If not connected, try to connect
+    if (mongoose.connection.readyState === 0) {
+      await connectDB();
+    }
+    
+    // If connection is in progress, wait a bit
+    if (mongoose.connection.readyState === 2) {
+      // Wait for connection (max 5 seconds)
+      let attempts = 0;
+      while (mongoose.connection.readyState !== 1 && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+      }
+    }
+    
+    // If still not connected, return error
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).send({
+        status: 503,
+        message: "Database connection unavailable. Please try again."
+      });
+    }
+    
+    next();
+  } catch (error) {
+    console.error("Database connection middleware error:", error);
+    return res.status(503).send({
+      status: 503,
+      message: "Database connection error. Please try again."
+    });
+  }
+});
 
 // Routes
 app.get("/", (req, res) => {
@@ -50,14 +123,17 @@ app.post("/remove-from-circle", circleRoutes);
 app.post("/update-user-location", findRoutes);
 app.get("/users-with-location", findRoutes);
 
-// MongoDB connection
-mongoose
-  .connect(
-    process.env.MONGODB_URI ||
-      "mongodb+srv://talhajubaer3121:7264@cluster0.ph4m3m0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-  )
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
+// Connect to MongoDB on startup
+connectDB().catch(console.error);
+
+// Handle connection events
+mongoose.connection.on('disconnected', () => {
+  console.log("⚠️ MongoDB disconnected");
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error("❌ MongoDB connection error:", err);
+});
 
 // For local development
 if (process.env.NODE_ENV !== "production") {
@@ -65,8 +141,9 @@ if (process.env.NODE_ENV !== "production") {
   app.listen(PORT, () => {
     console.log(`🚀 Local server running at http://localhost:${PORT}`);
   });
+  // Export app for local development
+  module.exports = app;
+} else {
+  // Export serverless handler for Vercel
+  module.exports = serverless(app);
 }
-
-// Export for Vercel
-module.exports = app;
-module.exports.handler = serverless(app);
