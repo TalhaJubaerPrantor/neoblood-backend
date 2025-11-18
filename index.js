@@ -6,6 +6,7 @@ const serverless = require("serverless-http");
 const authRoutes = require("./Routes/authRoute");
 const homeRoutes = require("./Routes/homeRoute");
 const circleRoutes = require("./Routes/circleRoute");
+const findRoutes = require("./Routes/findRoute");
 
 const app = express();
 
@@ -44,6 +45,10 @@ app.get("/users/:userId", circleRoutes);
 app.post("/search-user-by-phone", circleRoutes);
 app.post("/add-to-circle", circleRoutes);
 app.post("/remove-from-circle", circleRoutes);
+
+// Find/Location Routes
+app.post("/update-user-location", findRoutes);
+app.get("/users-with-location", findRoutes);
 
 // MongoDB connection
 mongoose

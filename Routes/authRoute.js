@@ -4,8 +4,14 @@ const User = require('../models/userModel');
 
 
 router.get('/users', async (req, res) => {
-    const users = await User.find({});
-    res.send(users);
+    try {
+        const users = await User.find({})
+            .select('name email phone bloodGroup location locationGeo district thana address availability totalDonations points lastDonation isActive eligibilityDate');
+        res.send(users);
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        res.send({ status: 400, message: error.message });
+    }
 })
 
 router.post('/register', async (req, res) => {
