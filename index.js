@@ -60,7 +60,13 @@ app.use(cors());
 app.use(express.json());
 
 // Middleware to ensure MongoDB connection before handling requests (for serverless)
+// Skip DB connection check for health endpoint
 app.use(async (req, res, next) => {
+  // Skip DB check for health endpoint
+  if (req.path === '/api/health' || req.path === '/') {
+    return next();
+  }
+  
   try {
     // Check if connected - fast path
     if (mongoose.connection.readyState === 1) {
@@ -97,7 +103,20 @@ app.use(async (req, res, next) => {
 
 // Routes
 app.get("/", (req, res) => {
-  res.send("🚀 Express + MongoDB running!");
+  res.json({ 
+    status: 200, 
+    message: "🚀 Express + MongoDB running!",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: 200, 
+    message: "Server is healthy",
+    dbStatus: mongoose.connection.readyState === 1 ? "connected" : "disconnected"
+  });
 });
 
 // Auth Routes
@@ -131,6 +150,25 @@ app.post("/remove-from-circle", circleRoutes);
 app.post("/update-user-location", findRoutes);
 app.get("/users-with-location", findRoutes);
 
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error("Global error handler:", err);
+  res.status(err.status || 500).json({
+    status: err.status || 500,
+    message: err.message || "Internal server error",
+    ...(process.env.NODE_ENV !== "production" && { stack: err.stack })
+  });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    status: 404,
+    message: "Route not found",
+    path: req.path
+  });
+});
+
 // Connect to MongoDB on startup (only for local development)
 if (process.env.NODE_ENV !== "production") {
   connectDB().catch(console.error);
@@ -146,14 +184,12 @@ mongoose.connection.on('error', (err) => {
 });
 
 // For local development
-if (process.env.NODE_ENV !== "production") {
+if (!process.env.VERCEL && process.env.NODE_ENV !== "production") {
   const PORT = process.env.PORT || 4000;
   app.listen(PORT, () => {
     console.log(`🚀 Local server running at http://localhost:${PORT}`);
   });
-  // Export app for local development
-  module.exports = app;
-} else {
-  // Export serverless handler for Vercel
-  module.exports = serverless(app);
 }
+
+// Export serverless handler for Vercel (always export this for Vercel)
+module.exports = serverless(app);
