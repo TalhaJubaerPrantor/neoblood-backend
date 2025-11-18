@@ -11,33 +11,46 @@ const findRoutes = require("./Routes/findRoute");
 const app = express();
 
 // MongoDB connection helper for serverless
+let connectionPromise = null;
+
 const connectDB = async () => {
   try {
     // Check if already connected
     if (mongoose.connection.readyState === 1) {
-      console.log("✅ MongoDB already connected");
       return;
     }
 
-    // Check if connection is in progress
-    if (mongoose.connection.readyState === 2) {
-      console.log("⏳ MongoDB connection in progress...");
-      return;
+    // If connection is in progress, return the existing promise
+    if (mongoose.connection.readyState === 2 && connectionPromise) {
+      return connectionPromise;
     }
 
-    // Connect with serverless-optimized options
-    const mongoUri = process.env.MONGODB_URI ||
-      "mongodb+srv://talhajubaer3121:7264@cluster0.ph4m3m0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+    // Create new connection promise
+    if (!connectionPromise) {
+      const mongoUri = process.env.MONGODB_URI ||
+        "mongodb+srv://talhajubaer3121:7264@cluster0.ph4m3m0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+      
+      connectionPromise = mongoose.connect(mongoUri, {
+        serverSelectionTimeoutMS: 3000, // Reduced to 3s for faster timeout
+        socketTimeoutMS: 45000,
+        connectTimeoutMS: 3000, // Connection timeout
+        maxPoolSize: 1, // Limit connections for serverless
+        minPoolSize: 0, // Allow connection pool to close
+        bufferCommands: false, // Disable mongoose buffering
+      }).then(() => {
+        console.log("✅ Connected to MongoDB");
+        connectionPromise = null; // Reset promise on success
+        return;
+      }).catch((err) => {
+        connectionPromise = null; // Reset promise on error
+        throw err;
+      });
+    }
     
-    await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
-      bufferCommands: false, // Disable mongoose buffering
-    });
-    
-    console.log("✅ Connected to MongoDB");
+    return connectionPromise;
   } catch (err) {
     console.error("❌ MongoDB Connection Error:", err);
+    connectionPromise = null;
     throw err;
   }
 };
@@ -49,27 +62,22 @@ app.use(express.json());
 // Middleware to ensure MongoDB connection before handling requests (for serverless)
 app.use(async (req, res, next) => {
   try {
-    // Check if connected
+    // Check if connected - fast path
     if (mongoose.connection.readyState === 1) {
       return next();
     }
     
-    // If not connected, try to connect
-    if (mongoose.connection.readyState === 0) {
-      await connectDB();
-    }
+    // Try to connect with timeout
+    const connectWithTimeout = Promise.race([
+      connectDB(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), 2500)
+      )
+    ]);
     
-    // If connection is in progress, wait a bit
-    if (mongoose.connection.readyState === 2) {
-      // Wait for connection (max 5 seconds)
-      let attempts = 0;
-      while (mongoose.connection.readyState !== 1 && attempts < 10) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        attempts++;
-      }
-    }
+    await connectWithTimeout;
     
-    // If still not connected, return error
+    // Double-check connection state
     if (mongoose.connection.readyState !== 1) {
       return res.status(503).send({
         status: 503,
@@ -123,8 +131,10 @@ app.post("/remove-from-circle", circleRoutes);
 app.post("/update-user-location", findRoutes);
 app.get("/users-with-location", findRoutes);
 
-// Connect to MongoDB on startup
-connectDB().catch(console.error);
+// Connect to MongoDB on startup (only for local development)
+if (process.env.NODE_ENV !== "production") {
+  connectDB().catch(console.error);
+}
 
 // Handle connection events
 mongoose.connection.on('disconnected', () => {
